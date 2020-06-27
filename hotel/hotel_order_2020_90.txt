@@ -1,0 +1,101 @@
+原始数据
+1       丰雅丽  2020-06-01      89      10271563
+1       丰雅丽  2020-06-02      89      10271563
+1       丰雅丽  2020-06-03      89      10271563
+1       丰雅丽  2020-06-13      91      02371493
+2       碧千易  2020-06-13      93      02371493
+2       碧千易  2020-06-13      93      02371493
+3       齐钰    2020-06-01      101     02371493
+3       齐钰    2020-06-02      101     02371493
+4       酒博瀚  2020-06-02      101     00277553
+4       酒博瀚  2020-06-03      101     00277553
+4       酒博瀚  2020-06-04      101     00277553
+5       掌蓉城  2020-06-01      103     01341433
+5       掌蓉城  2020-06-02      103     01341433
+6       源采文  2020-06-01      103     00174553
+6       源采文  2020-06-02      103     00174553
+
+
+1. 先查询2020年订单金额大于100的订单流水，并计为t1。
+select name, order_date, price, code
+from db_company.hotel_order
+where substring(order_date, 1, 4) = '2020' and price > 90;t1
+
+2. 查询前一天后一天的日期数据
+
+select
+    name, order_date, price, code,
+    lag(order_date, 1, '0000-00-00') over(partition by name order by order_date) lag1,
+    lead(order_date, 1, '0000-00-00') over(partition by name order by order_date) lead1
+from t1;
+
+select
+    name, order_date, price, code,
+    lag(order_date, 1, '0000-00-00') over(partition by name order by order_date) lag1,
+    lead(order_date, 1, '0000-00-00') over(partition by name order by order_date) lead1
+from 
+(
+    select name, order_date, price, code
+    from db_company.hotel_order
+    where substring(order_date, 1, 4) = '2020' and price > 90
+)t2;
+
+3. 查询时间差
+
+select 
+    name, order_date, price, code,
+    datediff(order_date, lag1) diff_lag1,
+    datediff(order_date, lead1) diff_lead1
+from t2;
+
+select 
+    name, order_date, price, code,
+    datediff(order_date, lag1) diff_lag1,
+    datediff(order_date, lead1) diff_lead1
+from 
+(
+    select
+        name, order_date, price, code,
+        lag(order_date, 1, '0000-00-00') over(partition by name order by order_date) lag1,
+        lead(order_date, 1, '0000-00-00') over(partition by name order by order_date) lead1
+    from 
+    (
+        select name, order_date, price, code
+        from db_company.hotel_order
+        where substring(order_date, 1, 4) = '2020' and price > 90
+    )t1
+)t2;
+
+
+4. 同步比对时间差，得出最后流水明细
+
+select 
+    name, order_date, price, code
+from
+    t3
+where 
+    diff_lag1 = 0 or diff_lag1  = 1 or diff_lead1 = -1 or diff_lead1 = 0;
+
+select 
+    name, order_date, price, code
+from
+(
+    select 
+    name, order_date, price, code,
+    datediff(order_date, lag1) diff_lag1,
+    datediff(order_date, lead1) diff_lead1
+    from 
+    (
+        select
+            name, order_date, price, code,
+            lag(order_date, 1, '0000-00-00') over(partition by name order by order_date) lag1,
+            lead(order_date, 1, '0000-00-00') over(partition by name order by order_date) lead1
+        from 
+        (
+            select name, order_date, price, code
+            from db_company.hotel_order
+            where substring(order_date, 1, 4) = '2020' and price > 90
+        )t1
+    )t2
+)t3
+where diff_lag1 = 0 or diff_lag1  = 1 or diff_lead1 = -1 or diff_lead1 = 0;
